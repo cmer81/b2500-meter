@@ -45,22 +45,23 @@ class Shelly:
         b = self._calculate_derived_values(powers[1])
         c = self._calculate_derived_values(powers[2])
 
-        total_act_power = round(sum(powers), 3)
-        total_act_power = total_act_power + (
+        total_power = round(sum(powers), 3)
+        total_power = total_power + (
             0.001
-            if total_act_power == round(total_act_power) or total_act_power == 0
+            if total_power == round(total_power) or total_power == 0
             else 0
         )
 
         return {
             "id": request_id,
             "src": self._device_id,
-            "dst": "unknown",
             "result": {
-                "a_act_power": a,
-                "b_act_power": b,
-                "c_act_power": c,
-                "total_act_power": total_act_power,
+                "id": 0,
+                "ct_state": 1,
+                "a_power": a,
+                "b_power": b,
+                "c_power": c,
+                "total_power": total_power,
             },
         }
 
