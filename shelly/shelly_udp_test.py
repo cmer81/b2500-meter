@@ -42,11 +42,11 @@ class TestShellyUDP(unittest.TestCase):
                 data, _ = client.recvfrom(1024)
                 response = json.loads(data.decode())
                 responses.append(response["id"])
-                
+
                 # Verify API compliance with Marstek Rev 1.0
                 result = response["result"]
                 self.assertIn("id", result)
-                self.assertIn("ct_state", result) 
+                self.assertIn("ct_state", result)
                 self.assertIn("a_power", result)
                 self.assertIn("b_power", result)
                 self.assertIn("c_power", result)
@@ -84,31 +84,27 @@ class TestShellyUDP(unittest.TestCase):
         shelly.start()
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            
-            request = {
-                "id": 1,
-                "method": "EM.GetStatus",
-                "params": {"id": 0}
-            }
-            
+
+            request = {"id": 1, "method": "EM.GetStatus", "params": {"id": 0}}
+
             client.sendto(json.dumps(request).encode(), ("127.0.0.1", port))
             data, _ = client.recvfrom(1024)
             response = json.loads(data.decode())
-            
+
             # Verify top-level response format
             self.assertEqual(response["id"], 1)
             self.assertEqual(response["src"], "test-device")
             self.assertNotIn("dst", response)  # Should not contain dst field
-            
+
             # Verify result format matches API spec
             result = response["result"]
             self.assertEqual(result["id"], 0)
             self.assertEqual(result["ct_state"], 1)
             self.assertIsInstance(result["a_power"], (int, float))
-            self.assertIsInstance(result["b_power"], (int, float))  
+            self.assertIsInstance(result["b_power"], (int, float))
             self.assertIsInstance(result["c_power"], (int, float))
             self.assertIsInstance(result["total_power"], (int, float))
-            
+
         finally:
             client.close()
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
