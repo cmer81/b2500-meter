@@ -17,6 +17,16 @@ POLL_INTERVAL = 1
 # Can be overridden per powermeter section
 THROTTLE_INTERVAL = 0
 
+# Shelly Push Mode Configuration (optional)
+# Enable push mode to send data proactively to a target IP instead of waiting for requests
+SHELLY_PUSH_MODE = False
+# Target IP address for push mode (required if push mode is enabled)
+SHELLY_PUSH_TARGET_IP = 192.168.2.8
+# Target port for push mode (required if push mode is enabled)
+SHELLY_PUSH_TARGET_PORT = 22222
+# Interval between push messages in seconds
+SHELLY_PUSH_INTERVAL = 1.0
+
 #[SHELLY]
 #TYPE = 1PM #PLUS1PM #EM #3EM #3EMPRO
 #IP = 192.168.1.100

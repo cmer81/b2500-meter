@@ -1,8 +1,9 @@
 import socket
 import threading
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from config import ClientFilter
 from powermeter import Powermeter
 from config.logger import logger
@@ -14,15 +15,26 @@ class Shelly:
         powermeters: List[Tuple[Powermeter, ClientFilter]],
         udp_port: int,
         device_id,
+        push_mode: bool = False,
+        push_target_ip: Optional[str] = None,
+        push_target_port: Optional[int] = None,
+        push_interval: float = 1.0,
     ):
         self._udp_port = udp_port
         self._device_id = device_id
         self._powermeters = powermeters
         self._udp_thread = None
+        self._push_thread = None
         self._stop = False
         self._value_mutex = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=5)
         self._send_lock = threading.Lock()
+        
+        # Push mode configuration
+        self._push_mode = push_mode
+        self._push_target_ip = push_target_ip
+        self._push_target_port = push_target_port
+        self._push_interval = push_interval
 
     def _calculate_derived_values(self, power):
         decimal_point_enforcer = 0.001
@@ -117,6 +129,42 @@ class Shelly:
         except Exception as e:
             logger.error(f"Error processing message: {e}")
 
+    def _push_data_loop(self):
+        """Send data proactively to target IP in push mode"""
+        if not self._push_mode or not self._push_target_ip or not self._push_target_port:
+            return
+            
+        logger.info(f"Starting push mode to {self._push_target_ip}:{self._push_target_port} every {self._push_interval}s")
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        target_addr = (self._push_target_ip, self._push_target_port)
+        
+        try:
+            while not self._stop:
+                try:
+                    # Get the first available powermeter (for push mode, we don't filter by client IP)
+                    if self._powermeters:
+                        powermeter = self._powermeters[0][0]  # Take first powermeter
+                        powers = powermeter.get_powermeter_watts()
+                        
+                        # Create a fake request ID for push mode
+                        request_id = int(time.time()) % 1000000
+                        
+                        # Default to EM.GetStatus format for push mode
+                        response = self._create_em_response(request_id, powers)
+                        response_json = json.dumps(response, separators=(",", ":"))
+                        
+                        logger.debug(f"Pushing data to {target_addr}: {response_json}")
+                        sock.sendto(response_json.encode(), target_addr)
+                        
+                except Exception as e:
+                    logger.error(f"Error in push mode: {e}")
+                
+                time.sleep(self._push_interval)
+                
+        finally:
+            sock.close()
+
     def udp_server(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(("", self._udp_port))
@@ -134,16 +182,28 @@ class Shelly:
         if self._udp_thread:
             return
         self._stop = False
+        
+        # Always start UDP server for backward compatibility
         self._udp_thread = threading.Thread(target=self.udp_server)
         self._udp_thread.start()
+        
+        # Start push thread if push mode is enabled
+        if self._push_mode:
+            self._push_thread = threading.Thread(target=self._push_data_loop)
+            self._push_thread.start()
 
     def join(self):
         if self._udp_thread:
             self._udp_thread.join()
+        if self._push_thread:
+            self._push_thread.join()
 
     def stop(self):
         self._stop = True
         if self._udp_thread:
             self._udp_thread.join()
             self._udp_thread = None
+        if self._push_thread:
+            self._push_thread.join()
+            self._push_thread = None
         self._executor.shutdown(wait=True)

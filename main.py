@@ -55,6 +55,10 @@ def run_device(
     args: argparse.Namespace,
     powermeters: List[Tuple[Powermeter, ClientFilter]],
     device_id: Optional[str] = None,
+    push_mode: bool = False,
+    push_target_ip: Optional[str] = None,
+    push_target_port: Optional[int] = None,
+    push_interval: float = 1.0,
 ):
     logger.debug(f"Starting device: {device_type}")
 
@@ -111,22 +115,62 @@ def run_device(
     elif device_type == "shellypro3em_old":
         logger.debug(f"Shelly Pro 3EM Settings:")
         logger.debug(f"Device ID: {device_id}")
-        device = Shelly(powermeters=powermeters, device_id=device_id, udp_port=1010)
+        if push_mode:
+            logger.debug(f"Push mode enabled: {push_target_ip}:{push_target_port} every {push_interval}s")
+        device = Shelly(
+            powermeters=powermeters, 
+            device_id=device_id, 
+            udp_port=1010,
+            push_mode=push_mode,
+            push_target_ip=push_target_ip,
+            push_target_port=push_target_port,
+            push_interval=push_interval
+        )
 
     elif device_type == "shellypro3em_new":
         logger.debug(f"Shelly Pro 3EM Settings:")
         logger.debug(f"Device ID: {device_id}")
-        device = Shelly(powermeters=powermeters, device_id=device_id, udp_port=2220)
+        if push_mode:
+            logger.debug(f"Push mode enabled: {push_target_ip}:{push_target_port} every {push_interval}s")
+        device = Shelly(
+            powermeters=powermeters, 
+            device_id=device_id, 
+            udp_port=2220,
+            push_mode=push_mode,
+            push_target_ip=push_target_ip,
+            push_target_port=push_target_port,
+            push_interval=push_interval
+        )
 
     elif device_type == "shellyemg3":
         logger.debug(f"Shelly EM Gen3 Settings:")
         logger.debug(f"Device ID: {device_id}")
-        device = Shelly(powermeters=powermeters, device_id=device_id, udp_port=2222)
+        if push_mode:
+            logger.debug(f"Push mode enabled: {push_target_ip}:{push_target_port} every {push_interval}s")
+        device = Shelly(
+            powermeters=powermeters, 
+            device_id=device_id, 
+            udp_port=2222,
+            push_mode=push_mode,
+            push_target_ip=push_target_ip,
+            push_target_port=push_target_port,
+            push_interval=push_interval
+        )
 
     elif device_type == "shellyproem50":
         logger.debug(f"Shelly Pro EM 50 Settings:")
         logger.debug(f"Device ID: {device_id}")
-        device = Shelly(powermeters=powermeters, device_id=device_id, udp_port=2223)
+        if push_mode:
+            logger.debug(f"Push mode enabled: {push_target_ip}:{push_target_port} every {push_interval}s")
+        device = Shelly(
+            powermeters=powermeters, 
+            device_id=device_id, 
+            udp_port=2223,
+            push_mode=push_mode,
+            push_target_ip=push_target_ip,
+            push_target_port=push_target_port,
+            push_interval=push_interval
+        )
 
     else:
         raise ValueError(f"Unsupported device type: {device_type}")
@@ -198,6 +242,12 @@ def main():
         if args.skip_powermeter_test is not None
         else cfg.getboolean("GENERAL", "SKIP_POWERMETER_TEST", fallback=False)
     )
+    
+    # Load push mode configuration
+    push_mode = cfg.getboolean("GENERAL", "SHELLY_PUSH_MODE", fallback=False)
+    push_target_ip = cfg.get("GENERAL", "SHELLY_PUSH_TARGET_IP", fallback=None)
+    push_target_port = cfg.getint("GENERAL", "SHELLY_PUSH_TARGET_PORT", fallback=None)
+    push_interval = cfg.getfloat("GENERAL", "SHELLY_PUSH_INTERVAL", fallback=1.0)
 
     device_ids = args.device_ids if args.device_ids is not None else []
     # Fill missing device IDs with default format
@@ -246,7 +296,8 @@ def main():
             for device_type, device_id in zip(device_types, device_ids):
                 futures.append(
                     executor.submit(
-                        run_device, device_type, cfg, args, powermeters, device_id
+                        run_device, device_type, cfg, args, powermeters, device_id,
+                        push_mode, push_target_ip, push_target_port, push_interval
                     )
                 )
             # end for
